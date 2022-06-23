@@ -10,6 +10,9 @@ import EditBar from "metabase/components/EditBar";
 import EditWarning from "metabase/components/EditWarning";
 import HeaderModal from "metabase/components/HeaderModal";
 import TitleAndDescription from "metabase/components/TitleAndDescription";
+
+import { DataAppContextConsumer } from "metabase/writeback/containers/DataAppContext";
+
 import {
   HeaderRoot,
   HeaderBadges,
@@ -130,10 +133,14 @@ class Header extends Component {
     let titleAndDescription;
     if (this.props.item && this.props.item.id != null) {
       titleAndDescription = (
-        <TitleAndDescription
-          title={this.props.item.name}
-          description={this.props.item.description}
-        />
+        <DataAppContextConsumer>
+          {dataAppContext => (
+            <TitleAndDescription
+              title={dataAppContext.format(this.props.item.name)}
+              description={dataAppContext.format(this.props.item.description)}
+            />
+          )}
+        </DataAppContextConsumer>
       );
     } else {
       titleAndDescription = (
