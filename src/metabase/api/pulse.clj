@@ -178,7 +178,10 @@
   [{query :dataset_query, card-id :id}]
   (binding [qp.perms/*card-id* card-id]
     (qp/process-query-and-save-execution!
-     (assoc query :async? false)
+     (-> query
+         (assoc :async? false)
+         (assoc :middleware {:process-viz-settings? true
+                             :js-int-to-string?     false}))
      {:executed-by api/*current-user-id*
       :context     :pulse
       :card-id     card-id})))
