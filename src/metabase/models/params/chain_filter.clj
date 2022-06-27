@@ -417,7 +417,7 @@
 
 ;;; ------------------------ Chain filter (powers GET /api/dashboard/:id/params/:key/values) -------------------------
 
-(s/defn ^:private unremapped-chain-filter
+(s/defn unremapped-chain-filter
   "Chain filtering without all the fancy remapping stuff on top of it."
   [field-id                                 :- su/IntGreaterThanZero
    constraints                              :- (s/maybe ConstraintsMap)
@@ -530,12 +530,9 @@
 
 (defn- use-cached-field-values?
   "Whether we should use cached `FieldValues` instead of running a query via the QP."
-  [field-id constraints search?]
+  [field-id search?]
   (and
    field-id
-   ;; only use cached Field values if there are no additional constraints (i.e. if this is just a simple "fetch all
-   ;; values" call)
-   (empty? constraints)
    ;; check whether the Field *should* have Field values. Not whether it actually does.
    (field-values/field-should-have-field-values? field-id)
    ;; If the Field *should* values, make sure the Field actually *does* have Field Values as well (but not a
@@ -547,10 +544,14 @@
                                   (when search?
                                     {:has_more_values false})))))
 
-(defn- cached-field-values [field-id {:keys [limit]}]
-  (let [{:keys [values]} (params.field-values/get-or-create-field-values-for-current-user! (Field field-id))]
-    (cond->> (map first values)
-      limit (take limit))))
+(defn- cached-field-values [field-id constraints {:keys [limit]}]
+  (if (empty? constraints)
+    (let [{:keys [values]} (params.field-values/get-or-create-field-values-for-current-user! (Field field-id))]
+      (cond->> (map first values)
+        limit (take limit)))
+    (let [{:keys [values]} (params.field-values/get-or-create-linked-filter-field-values! (Field field-id) constraints)]
+      (cond->> (map first values)
+        limit (take limit)))))
 
 (s/defn chain-filter
   "Fetch a sequence of possible values of Field with `field-id` by restricting the possible values to rows that match
@@ -574,12 +575,11 @@
   (let [{:as options} options]
     (if-let [v->human-readable (human-readable-remapping-map field-id)]
       (human-readable-values-remapped-chain-filter field-id v->human-readable constraints options)
-      (if (use-cached-field-values? field-id constraints false)
-        (cached-field-values field-id options)
+      (if (use-cached-field-values? field-id false)
+        (cached-field-values field-id constraints options)
         (if-let [remapped-field-id (remapped-field-id field-id)]
           (field-to-field-remapped-chain-filter field-id remapped-field-id constraints options)
           (unremapped-chain-filter field-id constraints options))))))
-
 
 ;;; ----------------- Chain filter search (powers GET /api/dashboard/:id/params/:key/search/:query) -----------------
 
@@ -633,13 +633,13 @@
           (add-human-readable-values values v->human-readable)))
       []))
 
-(defn- search-cached-field-values? [field-id constraints]
-  (and (use-cached-field-values? field-id constraints true)
+(defn- search-cached-field-values? [field-id]
+  (and (use-cached-field-values? field-id true)
        (isa? (db/select-one-field :base_type Field :id field-id) :type/Text)))
 
 (defn- cached-field-values-search
   [field-id query {:keys [limit]}]
-  (let [values (cached-field-values field-id nil)
+  (let [values (cached-field-values field-id {} nil)
         query  (str/lower-case query)]
     (cond->> (filter (fn [s]
                        (when s
@@ -671,7 +671,7 @@
     (let [{:as options} options]
       (if-let [v->human-readable (human-readable-remapping-map field-id)]
         (human-readable-values-remapped-chain-filter-search field-id v->human-readable constraints query options)
-        (if (search-cached-field-values? field-id constraints)
+        (if (search-cached-field-values? field-id)
           (cached-field-values-search field-id query options)
           (if-let [remapped-field-id (remapped-field-id field-id)]
             (field-to-field-remapped-chain-filter-search field-id remapped-field-id constraints query options)

@@ -58,3 +58,12 @@
   (if (field-is-sandboxed? field)
     (get-or-create-sandboxed-field-values! field api/*current-user-id* @api/*current-user-permissions-set*)
     (params.field-values/default-get-or-create-field-values-for-current-user! field)))
+
+(defenterprise linked-filter-hash-key
+  "AAA"
+  :feature :sandboxes
+  [field constraints]
+  (if (field-is-sandboxed? field)
+    (field-values/hash-key-for-linked-filters
+      (:id field) constraints api/*current-user-id* api/*current-user-permissions-set*)
+    (field-values/hash-key-for-linked-filters (:id field) constraints)))

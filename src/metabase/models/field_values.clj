@@ -256,10 +256,16 @@
               (seq user-permissions-set)])))
 
 (defn hash-key-for-linked-filters
-  "Return a hash-key that will be used for linked-filters fieldvalues."
-  [field-id constraints]
-  (str (hash [field-id
-              constraints])))
+  "Return a hash-key that will be used for linked-filters fieldvalues.
+  The 4-arities are used when using linked-filter with sandbox."
+  ([field-id constraints]
+   (str (hash [field-id
+               constraints])))
+  ([field-id constraints user-id user-permissions-set]
+   (str (hash [field-id
+               constraints
+               user-id
+               (seq user-permissions-set)]))))
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                                    CRUD fns                                                    |
